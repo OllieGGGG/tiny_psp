@@ -10,13 +10,27 @@ project(tiny_psp)
 # initialize the Raspberry Pi Pico SDK
 pico_sdk_init()
 
+add_compile_definitions(CONFIG_SX127X_DISABLE_SPI_CACHE=true)
+
 # rest of your project
 add_executable(tiny_psp
     main.c
     buttons.c
     display.c
     st7789.c
+    "${CMAKE_CURRENT_SOURCE_DIR}/sx127x/src/sx127x.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/sx127x_spi.c"
 )
+
+target_include_directories(tiny_psp
+    PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/sx127x/include)
+
+#add_library(sx127x STATIC
+#        "${CMAKE_CURRENT_SOURCE_DIR}/sx127x_spi.c")
+#target_link_libraries(tiny_psp sx127x)
 
 # Add pico_stdlib library which aggregates commonly used features
 target_link_libraries(tiny_psp pico_stdlib)

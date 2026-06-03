@@ -11,3 +11,11 @@
 #define LCD_MOSI (11)
 #define LCD_RST (27)
 
+#define LORA_MOSI (3)
+#define LORA_MISO (4)
+#define LORA_SCK (2)
+#define LORA_CS (1)
+#define LORA_RESET (5)
+#define LORA_DIO0 ()
+
+
