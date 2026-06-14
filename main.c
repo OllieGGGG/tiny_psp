@@ -2,16 +2,13 @@
 #include "pico/stdlib.h"
 #include "hardware/timer.h"
 
-/* TODO(Oleg): remove after */
-#include "hardware/gpio.h"
-#include "hardware/spi.h"
-#include "sx127x.h"
-
 #include "st7789.h"
 #include "buttons.h"
 #include "display.h"
+#include "gpio.h"
+#include "modem.h"
 
-#include "config.h"
+#include "pairing.c"
 
 //void enable_pwm() {
 //    /*
@@ -32,86 +29,88 @@
 
 #define ERROR_CHECK(x) {if (x != 0) printf("Something not good");}
 
+static uint64_t g_send_freq = 0;
+static uint64_t g_recv_freq = 0;
+
 int main() {
     stdio_init_all();
-    sleep_ms(2000);
-    printf("Initialize lora modem\n");
+    sleep_ms(500);
 
-    spi_init(spi0, 5 * 1000 * 1000);
-    gpio_set_function(LORA_MOSI, GPIO_FUNC_SPI);
-    gpio_set_function(LORA_MISO, GPIO_FUNC_SPI);
-    gpio_set_function(LORA_SCK, GPIO_FUNC_SPI);
-
-    gpio_init(LORA_CS);
-    gpio_set_dir(LORA_CS, GPIO_OUT);
-    gpio_put(LORA_CS, 1);
-
-    //gpio_init(LORA_MISO);
-    //gpio_set_dir(LORA_MISO, GPIO_OUT);
-    //gpio_put(LORA_MISO, 1);
-
-    gpio_init(LORA_RESET);
-    gpio_set_dir(LORA_RESET, GPIO_OUT);
-    gpio_put(LORA_RESET, 0);
-    sleep_ms(100);
-    gpio_put(LORA_RESET, 1);
-    sleep_ms(100);
-
-    sx127x device;
-    sx127x_create(NULL, &device);
-    ERROR_CHECK(sx127x_set_opmod(SX127X_MODE_STANDBY, SX127X_MODULATION_LORA, &device));
-    ERROR_CHECK(sx127x_set_frequency(868000000, &device));
-    ERROR_CHECK(sx127x_lora_reset_fifo(&device));
-    ERROR_CHECK(sx127x_lora_set_bandwidth(SX127X_BW_125000, &device));
-    ERROR_CHECK(sx127x_lora_set_implicit_header(NULL, &device));
-    ERROR_CHECK(sx127x_lora_set_spreading_factor(SX127X_SF_9, &device));
-    ERROR_CHECK(sx127x_lora_set_syncword(18, &device));
-    ERROR_CHECK(sx127x_set_preamble_length(8, &device));
-    //sx127x_tx_set_callback(tx_callback, &device, &device);
-
-    uint8_t reg_value;
-    while (true) {
-        //sx127x_read_register(0x42, &device.spi_device, &reg_value);
-        uint64_t freq;
-        sx127x_get_frequency(&device, &freq);
-        printf("Frequency: %lld\n", freq);
-        //gpio_put(LORA_CS, 0);
-        //spi_write_read_blocking(spi0, tx, rx, 2);
-        //gpio_put(LORA_CS, 1);
-        //printf("nitialize lora modem: %d\n", reg_value);
-        sleep_ms(100);
-    }
-
-    return 0;
-    printf("Init buttons\n");
-    buttons_init();
+    gpio_mine_init();
+    printf("Init GPIO\n");
     disp_init();
+    printf("Init display\n");
+    modem_init();
+    printf("Initialize modem\n");
+    buttons_init();
+    printf("Init buttons\n");
 
+    uint8_t modem_tmp_msg[MSG_SIZE];
+    uint8_t state = 0;
+    modem_tmp_msg[0] = state;
+    bool wait_tx = false;
     int pos = 0;
     uint64_t start = time_us_64();
+    uint8_t cnt = 0;
+
+
+    uint8_t mine_pos_x = 0;
+    uint8_t mine_pos_y = 0;
+    uint8_t opp_pos_x = 0;
+    uint8_t opp_pos_y = 0;
+
     while (true) {
-        sleep_ms(1);
+        enum ModemEvent modem_event = modem_get_last_event();
+        enum ButtonEvent btn_event = buttons_get_last_event();
+
+        /* Make pairing until all good */
+        if (pairing(modem_event, btn_event, &g_send_freq, &g_recv_freq)) {
+            continue;
+        }
+
+        /* Start send coordinates */
+        if (wait_tx) {
+            if (modem_event == ModemEventTxDone) {
+                modem_set_frequency(g_recv_freq);
+                modem_set_recv_mode();
+                start = time_us_64();
+                wait_tx = false;
+            }
+        } else {
+            bool send = false;
+            if (modem_event == ModemEventRxDone && (modem_get_last_msg(modem_tmp_msg) == 0)) {
+                opp_pos_x = *((uint8_t *)modem_tmp_msg);
+                opp_pos_y = *((uint8_t *)modem_tmp_msg + 1);
+                printf("Receive coordinates: %d, %d\n", opp_pos_x, opp_pos_y);
+                send = true;
+            } else if (((time_us_64() - start) / 1000) > 80) {
+                send = true;
+            }
+            if (send) {
+                send = false;
+                modem_tmp_msg[0] = mine_pos_x;
+                modem_tmp_msg[1] = mine_pos_y;
+                modem_set_frequency(g_send_freq);
+                modem_send(modem_tmp_msg);
+                wait_tx = true;
+            }
+        }
+
         if (disp_ready()) {
-            disp_clear(BLACK);
-            disp_draw_rectangle(pos, 0, pos + 20, 20, RED);
+            disp_clear(BLUE);
+            disp_draw_rectangle(mine_pos_x, mine_pos_y, mine_pos_x + 20, mine_pos_y + 20, RED);
+            disp_draw_rectangle(opp_pos_x, opp_pos_y, opp_pos_x + 20, opp_pos_y + 20, GREEN);
             disp_render();
         }
 
-        enum ButtonEvent btn_event = buttons_get_last_event();
         switch (btn_event) {
             case ButtonEventLDownPress: {
-                pos -= 10;
+                mine_pos_x -= 10;
             } break;
             case ButtonEventRDownPress: {
-                pos += 10;
+                mine_pos_x += 10;
             } break;
         }
-        //if (frame_cnt % 101 == 0) {
-        //    frame_cnt = 0;
-        //    uint64_t time = time_us_64() - start;
-        //    printf("You got 1000 frames output in %lld ms\n", time / 1000);
-        //    start = time_us_64();
-        //}
     }
     printf("We are here!!!!\n");
 }

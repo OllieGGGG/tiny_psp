@@ -16,6 +16,6 @@
 #define LORA_SCK (2)
 #define LORA_CS (1)
 #define LORA_RESET (5)
-#define LORA_DIO0 ()
+#define LORA_DIO0 (7)
 
 

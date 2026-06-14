@@ -18,6 +18,8 @@ add_executable(tiny_psp
     buttons.c
     display.c
     st7789.c
+    gpio.c
+    modem.c
     "${CMAKE_CURRENT_SOURCE_DIR}/sx127x/src/sx127x.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/sx127x_spi.c"
 )
@@ -48,4 +50,7 @@ pico_enable_stdio_uart(tiny_psp 0)
 # create map/bin/hex/uf2 file etc.
 pico_add_extra_outputs(tiny_psp)
 
+if("${TX}" STREQUAL "1") 
+add_compile_definitions(TX=${TX})
+endif()
 

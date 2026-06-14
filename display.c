@@ -5,9 +5,13 @@
 #include "hardware/dma.h"
 #include "pico/stdlib.h"
 
-#include "display.h"
 #include "st7789.h"
 #include "config.h"
+
+#define DISPLAY_HEIGHT (240)
+#define DISPLAY_WIDTH (240)
+#define CHECK_COORDS_X(x) (x >= 0 && x <= DISPLAY_WIDTH)
+#define CHECK_COORDS_Y(y) (y >= 0 && y <= DISPLAY_HEIGHT)
 
 static uint16_t disp_buffer[240 * 240];
 

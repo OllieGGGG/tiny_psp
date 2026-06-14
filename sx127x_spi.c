@@ -38,3 +38,28 @@ int sx127x_spi_write_register(int reg, const uint8_t *data, size_t data_length, 
 
     return 0;
 }
+
+int sx127x_spi_write_buffer(int reg, const uint8_t *buffer, size_t buffer_length, void *spi_device) {
+    uint8_t tx[256] = {reg | 0x80, 0};
+    memcpy(&tx[1], buffer, buffer_length);
+    uint8_t rx[256];
+
+    gpio_put(LORA_CS, 0);
+    spi_write_read_blocking(spi0, tx, rx, buffer_length + 1);
+    gpio_put(LORA_CS, 1);
+
+    return 0;
+}
+
+int sx127x_spi_read_buffer(int reg, uint8_t *buffer, size_t buffer_length, void *spi_device) {
+    uint8_t tx[256] = {reg & 0x7F, 0};
+    uint8_t rx[256] = {0};
+
+    gpio_put(LORA_CS, 0);
+    spi_write_read_blocking(spi0, tx, rx, buffer_length + 1);
+    gpio_put(LORA_CS, 1);
+
+    memcpy(buffer, rx + 1, buffer_length);
+    return 0;
+}
+

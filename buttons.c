@@ -1,9 +1,8 @@
-#include <stdio.h>
-
 #include "hardware/gpio.h"
 
 #include "buttons.h"
 #include "config.h"
+#include "gpio.h"
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof(arr[0]))
 
@@ -21,7 +20,6 @@ static void gpio_callback(uint gpio, uint32_t events) {
         return;
     }
 
-    printf("Gpio callback\n");
     for (uint8_t btn_gpio_idx = 0; btn_gpio_idx < ARRAY_SIZE(btn_gpio_event_table); btn_gpio_idx++) {
         if (btn_gpio_event_table[btn_gpio_idx].btn_gpio == gpio) {
             if (events == GPIO_IRQ_EDGE_FALL) event_queue[event_queue_w_ptr] = btn_gpio_event_table[btn_gpio_idx].btn_event_press;
@@ -40,8 +38,8 @@ void buttons_init() {
         gpio_pull_up(btn_gpio);
     }
 
-    gpio_set_irq_enabled_with_callback(BTN_R_DOWN, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, true, &gpio_callback);
-    gpio_set_irq_enabled_with_callback(BTN_L_DOWN, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, true, &gpio_callback);
+    gpio_mine_register_callback(BTN_R_DOWN, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, &gpio_callback);
+    gpio_mine_register_callback(BTN_L_DOWN, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, &gpio_callback);
 }
 
 enum ButtonEvent buttons_get_last_event() {
