@@ -7,10 +7,20 @@
 enum ButtonEvent {
     ButtonEventNone,
 
-    ButtonEventLDownPress,
-    ButtonEventLDownRelease,
     ButtonEventRDownPress,
     ButtonEventRDownRelease,
+
+    ButtonEventLUpPress,
+    ButtonEventLUpRelease,
+    ButtonEventLDownPress,
+    ButtonEventLDownRelease,
+    ButtonEventLRightPress,
+    ButtonEventLRightRelease,
+    ButtonEventLLeftPress,
+    ButtonEventLLeftRelease,
+
+    ButtonEventTRPress,
+    ButtonEventTLPress,
 };
 
 struct BtnGpioEvent {

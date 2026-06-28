@@ -5,6 +5,7 @@
 
 #include "modem.h"
 #include "buttons.h"
+#include "display.h"
 
 enum PairingState {
     PairingStateIdle = 0x1,
@@ -19,7 +20,7 @@ enum PairingState {
     PairingStateAdvertiseReady,
 };
 
-int pairing(enum ModemEvent modem_event, enum ButtonEvent btn_event, uint64_t *send_freq, uint64_t *recv_freq) {
+int pairing(enum ModemEvent modem_event, enum ButtonEvent btn_event, uint64_t *send_freq, uint64_t *recv_freq, bool *server) {
     /* Bind logic:
      * Choose either ADVERTISE either LISTEN ->
      * Advertise packets on certain frequency ->
@@ -36,15 +37,24 @@ int pairing(enum ModemEvent modem_event, enum ButtonEvent btn_event, uint64_t *s
 
     switch (pairing_state) {
         case PairingStateIdle: {
-            printf("Choose the mode\n");
-            char c = getchar();
-            printf("You input: %c\n", c);
-            if (c == 'a') {
+            disp_clear(BLACK);
+            disp_draw_text(0, 180, "Advertiser", 10, BLUE, 1);
+            disp_draw_text(DISP_WIDTH - 65, 180, "Listener", 8, BLUE, 1);
+
+            if (btn_event == ButtonEventRDownPress) {
                 pairing_state = PairingStateAdvertise;
-            } else if (c == 'l') {
+                disp_clear(BLACK);
+                disp_draw_text(0, 60, "Advertiser", 10, BLUE, 1);
+                *server = true;
+            } else if (btn_event == ButtonEventLDownPress) {
                 pairing_state = PairingStateListen;
+                disp_clear(BLACK);
+                disp_draw_text(120, 180, "Listener", 8, BLUE, 1);
                 modem_set_recv_mode();
+                *server = false;
             }
+            disp_render();
+            sleep_ms(1000);
         } break;
 
         /********** Advertiser part **********/

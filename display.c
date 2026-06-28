@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "hardware/gpio.h"
 #include "hardware/spi.h"
@@ -7,6 +9,7 @@
 
 #include "st7789.h"
 #include "config.h"
+#include "fonts.h"
 
 #define DISPLAY_HEIGHT (240)
 #define DISPLAY_WIDTH (240)
@@ -94,6 +97,38 @@ void disp_draw_rectangle(uint8_t x, uint8_t y, uint8_t x1, uint8_t y1, uint16_t 
     for (uint32_t col = x; col < x1; col++) {
         for (uint32_t row = y; row < y1; row++) {
             disp_buffer[col + row * DISPLAY_WIDTH] = ((color & 0xff00) >> 8) | ((color & 0XFF) << 8);
+        }
+    }
+}
+
+void disp_draw_circle(uint8_t x, uint8_t y, uint8_t r, uint16_t color) {
+    for (uint8_t col = x - r; col < x + r; col++) {
+        for (uint8_t row = y - r; row < y + r; row++) {
+            uint8_t dx = abs(x - col);
+            uint8_t dy = abs(y - row);
+            if (dx * dx + dy * dy <= r * r) {
+                disp_buffer[col + row * DISPLAY_WIDTH] = ((color & 0xff00) >> 8) | ((color & 0XFF) << 8);
+            }
+        }
+    }
+}
+
+void disp_draw_text(uint8_t x, uint8_t y, char *t, size_t len, uint16_t color, uint8_t size) {
+    /* Iterate over symbols to write as text */
+    for (uint8_t symbol_idx = 0; symbol_idx < len; symbol_idx++) {
+
+        /* Iterate over 8x8 symbol */
+        for (uint8_t font_row = 0; font_row < 8; font_row++) {
+            for (uint8_t font_col = 0; font_col < 8; font_col++) {
+                if (font8x8_basic[(int)(t[symbol_idx])][font_row] & (1 << font_col)) {
+                    for (uint8_t pixel_row = 0; pixel_row < size; pixel_row++) {
+                        for (uint8_t pixel_col = 0; pixel_col < size; pixel_col++) {
+                            uint32_t pixel_idx = x + (symbol_idx * 8 * size) + font_col * size + (y + pixel_row + font_row * size) * DISPLAY_WIDTH + pixel_col;
+                            disp_buffer[pixel_idx] = ((color & 0xff00) >> 8) | ((color & 0XFF) << 8);
+                        }
+                    }
+                }
+            }
         }
     }
 }
