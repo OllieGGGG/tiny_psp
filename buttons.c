@@ -14,7 +14,7 @@ static uint8_t event_queue_r_ptr = 0;
 static uint8_t event_queue_w_ptr = 0;
 
 struct BtnGpioEvent btn_gpio_event_table[] = {
-    {.btn_gpio = BTN_R_DOWN, .btn_event_press = ButtonEventLDownPress, .btn_event_release = ButtonEventLDownRelease},
+    {.btn_gpio = BTN_R_DOWN, .btn_event_press = ButtonEventRDownPress, .btn_event_release = ButtonEventRDownRelease},
 
     {.btn_gpio = BTN_L_DOWN, .btn_event_press = ButtonEventLDownPress, .btn_event_release = ButtonEventLDownRelease},
     {.btn_gpio = BTN_L_UP,    .btn_event_press = ButtonEventLUpPress, .btn_event_release = ButtonEventLUpRelease},

@@ -1,8 +1,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "pico/stdlib.h"
 #include "hardware/timer.h"
 
+#include "st7789.h"
 #include "modem.h"
 #include "buttons.h"
 #include "display.h"
@@ -41,12 +43,12 @@ int pairing(enum ModemEvent modem_event, enum ButtonEvent btn_event, uint64_t *s
             disp_draw_text(0, 180, "Advertiser", 10, BLUE, 1);
             disp_draw_text(DISP_WIDTH - 65, 180, "Listener", 8, BLUE, 1);
 
-            if (btn_event == ButtonEventRDownPress) {
+            if (btn_event == ButtonEventLDownPress) {
                 pairing_state = PairingStateAdvertise;
                 disp_clear(BLACK);
                 disp_draw_text(0, 60, "Advertiser", 10, BLUE, 1);
                 *server = true;
-            } else if (btn_event == ButtonEventLDownPress) {
+            } else if (btn_event == ButtonEventRDownPress) {
                 pairing_state = PairingStateListen;
                 disp_clear(BLACK);
                 disp_draw_text(120, 180, "Listener", 8, BLUE, 1);

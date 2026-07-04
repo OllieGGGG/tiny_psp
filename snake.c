@@ -6,15 +6,15 @@
 #define GRID_HEIGHT   (DISP_HEIGHT / CELL_SIZE)
 #define MAX_SNAKE_LEN (GRID_WIDTH * GRID_HEIGHT)
 
-#define SNAKE_STEP_MS (300)
+#define SNAKE_STEP_MS (200)
 
-#define COLOR_BG   BLACK
+#define COLOR_BG   BRED
 #define COLOR_HEAD RED
 #define COLOR_BODY WHITE
 #define COLOR_FOOD BLUE
 
-enum Direction {
-    DirUp = 0,
+enum __attribute__((packed)) Direction {
+    DirUp = 2,
     DirDown,
     DirLeft,
     DirRight,
@@ -157,7 +157,7 @@ static bool hits_self(const struct Snake *snake, struct Cell head) {
     return false;
 }
 
-static void snake_step(struct GameState *game) {
+static void snake_step(struct GameState *game, bool food) {
     struct Snake *snake = &game->snake;
     if (!snake->alive) {
         return;
@@ -193,7 +193,9 @@ static void snake_step(struct GameState *game) {
         }
 
         game->score++;
-        spawn_food(game);
+        if (food) {
+            spawn_food(game);
+        }
     } else {
         for (int i = snake->len - 1; i > 0; i--) {
             snake->body[i] = snake->body[i - 1];

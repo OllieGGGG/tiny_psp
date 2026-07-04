@@ -1,14 +1,14 @@
 #pragma once
 
-#define BTN_R_DOWN (26)
+#define BTN_R_DOWN (20)
 
 #define BTN_L_UP   (15)
 #define BTN_L_DOWN (6)
 #define BTN_L_RIGHT (13)
 #define BTN_L_LEFT (16)
 
-#define BTN_TR_DOWN (14)
-#define BTN_TL_DOWN (23)
+#define BTN_TR_DOWN (26)
+#define BTN_TL_DOWN (19)
 
 #define AUDIO (18)
 

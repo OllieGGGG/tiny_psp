@@ -116,6 +116,8 @@ int modem_get_last_msg(uint8_t *buf) {
 void modem_clear_events() {
     event_queue_r_ptr = 0;
     event_queue_w_ptr = 0;
+    rx_msgs_r_ptr = 0;
+    rx_msgs_w_ptr = 0;
 }
 
 int modem_send(uint8_t *buf) {

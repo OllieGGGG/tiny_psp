@@ -1,11 +1,8 @@
 #include <stdio.h>
-#include <math.h>
 
-#include "pico/stdlib.h"
 #include "hardware/timer.h"
 #include "hardware/watchdog.h"
 
-#include "st7789.h"
 #include "buttons.h"
 #include "display.h"
 #include "gpio.h"
@@ -13,6 +10,7 @@
 
 #include "pairing.c"
 #include "snake.c"
+#include "tiny_tcp.c"
 
 //void enable_pwm() {
 //    /*
@@ -30,13 +28,23 @@
 //    pwm_set_enabled(slice_num, true);
 //    pwm_set_gpio_level(AUDIO, 300);
 //}
+//
+
+enum SnakeGameState {
+    SnakeGameStateStartGame,
+    SnakeGameStateTick,
+    SnakeGameStateWaitSync,
+};
 
 static uint64_t g_send_freq = 0;
 static uint64_t g_recv_freq = 0;
 
 int main() {
     stdio_init_all();
-    sleep_ms(500);
+
+    sleep_ms(800);
+
+    printf("*********START THE CONSOLE*********!!!!\n");
 
     gpio_mine_init();
     printf("Init GPIO\n");
@@ -47,88 +55,87 @@ int main() {
     buttons_init();
     printf("Init buttons\n");
 
-    uint8_t modem_tmp_msg[MSG_SIZE];
-    uint8_t state = 0;
-    modem_tmp_msg[0] = state;
-    bool wait_tx = false;
-    int pos = 0;
-    uint64_t start = time_us_64();
-    uint8_t cnt = 0;
-
     struct GameState game = {0};
-    uint64_t step_start = time_us_64();
+    uint64_t tick_start = time_us_64();
+    uint8_t curr_tick = 0;
 
     game_reset(&game);
+
+    bool one_time = true;
+    bool server;
 
     while (true) {
         enum ModemEvent modem_event = modem_get_last_event();
         enum ButtonEvent btn_event = buttons_get_last_event();
+        enum TinyTcpEvent tiny_tcp_event = tiny_tcp_get_last_event();
 
         if (btn_event == ButtonEventTLPress) {
             watchdog_reboot(0, 0, 0);
         }
 
-        /* Make pairing until all good */
-
-        bool server;
-        //if (pairing(modem_event, btn_event, &g_send_freq, &g_recv_freq, &server)) {
-        //    //if (server) {
-        //    //    mine_pad.x = 0;
-        //    //    mine_pad.y = 0;
-        //    //} else {
-        //    //    mine_pad.x = DISP_WIDTH - PAD_WIDTH;
-        //    //    mine_pad.y = 0;
-        //    //}
-        //    continue;
-        //}
-
-        /* Start send coordinates */
-        if (wait_tx) {
-            if (modem_event == ModemEventTxDone) {
-                modem_set_frequency(g_recv_freq);
-                modem_set_recv_mode();
-                start = time_us_64();
-                wait_tx = false;
-            }
-        } else {
-            bool send = false;
-            //if (modem_event == ModemEventRxDone && (modem_get_last_msg(modem_tmp_msg) == 0)) {
-            //    if (server) {
-            //        opp_pad.x = *((uint8_t *)modem_tmp_msg);
-            //        opp_pad.y = *((uint8_t *)modem_tmp_msg + 1);
-            //    } else {
-            //        opp_pad.x = *((uint8_t *)modem_tmp_msg);
-            //        opp_pad.y = *((uint8_t *)modem_tmp_msg + 1);
-            //        ball.x = *((uint8_t *)modem_tmp_msg + 2);
-            //        ball.y = *((uint8_t *)modem_tmp_msg + 3);
-            //    }
-            //    send = true;
-            //} else if (((time_us_64() - start) / 1000) > 80) {
-            //    send = true;
-            //}
-            //if (send) {
-            //    send = false;
-            //    modem_tmp_msg[0] = mine_pad.x;
-            //    modem_tmp_msg[1] = mine_pad.y;
-            //    if (server) {
-            //        modem_tmp_msg[2] = ball.x;
-            //        modem_tmp_msg[3] = ball.y;
-            //    }
-            //    modem_set_frequency(g_send_freq);
-            //    modem_send(modem_tmp_msg);
-            //    wait_tx = true;
-            //}
+        if (pairing(modem_event, btn_event, &g_send_freq, &g_recv_freq, &server)) {
+            continue;
         }
 
-        handle_input(&game.snake, btn_event);
+        if (one_time) {
+            one_time = false;
+            modem_clear_events();
+            tiny_tcp_init(g_send_freq, g_recv_freq, server);
+        }
 
-        if (((time_us_64() - step_start) / 1000) > SNAKE_STEP_MS) {
-            step_start = time_us_64();
-            snake_step(&game);
+        tiny_tcp_process(modem_event);
 
-            if (!game.snake.alive) {
-                sleep_ms(700);
-                game_reset(&game);
+        static enum SnakeGameState snake_state = SnakeGameStateStartGame;
+        // "Server" is the one who play the game and send event to the "client"
+        if (server) {
+            switch (snake_state) {
+                case SnakeGameStateStartGame: {
+                    uint32_t payload = (curr_tick << 24) | (0) | (0) | (0);
+                    send(payload);
+                    snake_state = SnakeGameStateWaitSync;
+                } break;
+                case SnakeGameStateTick: {
+                    if (((time_us_64() - tick_start) / 1000) > SNAKE_STEP_MS) {
+                        uint8_t old_food_x = game.food.x;
+                        uint8_t old_food_y = game.food.y;
+
+                        tick_start = time_us_64();
+                        snake_step(&game, true);
+
+                        if (!game.snake.alive) {
+                            game_reset(&game);
+                            curr_tick = 0;
+                        }
+
+                        uint32_t payload = (curr_tick << 24) | (game.snake.next_dir << 16) | (old_food_x << 8) | (old_food_y);
+                        send(payload);
+                        snake_state = SnakeGameStateWaitSync;
+                    }
+                } break;
+                case SnakeGameStateWaitSync: {
+                    if (tiny_tcp_event == TinyTcpEventTxDone) {
+                        snake_state = SnakeGameStateTick;
+                        curr_tick++;
+                        if (!game.snake.alive) {
+                            snake_state = SnakeGameStateStartGame;
+                        }
+                    }
+                } break;
+            }
+            handle_input(&game.snake, btn_event);
+        } else {
+            uint32_t payload;
+            if (tiny_tcp_event == TinyTcpEventRxDone && (recv(&payload) == 0)) {
+                curr_tick = (payload >> 24) & 0xff;
+                game.snake.next_dir = (payload >> 16) & 0xff;
+                game.food.x = (payload >> 8) & 0xff;
+                game.food.y = (payload) & 0xff;
+
+                if (curr_tick == 0) {
+                    game_reset(&game);
+                } else {
+                    snake_step(&game, false);
+                }
             }
         }
 

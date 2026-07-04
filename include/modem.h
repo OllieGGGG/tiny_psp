@@ -5,7 +5,7 @@
 
 #define MODEM_EVENT_QUEUE_SIZE (10)
 #define RX_MSGS_QUEUE_SIZE (10)
-#define MSG_SIZE (8)
+#define MSG_SIZE (12)
 #define MAIN_FREQUENCY (862000000)
 
 enum ModemEvent {
